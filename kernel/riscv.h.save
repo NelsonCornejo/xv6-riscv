@@ -182,14 +182,14 @@ r_stvec()
 //   asm volatile("csrr %0, stimecmp" : "=r" (x) );
 //   return x;
 // }
-
+// 
 // static inline void 
 // w_stimecmp(uint64 x)
 // {
 //   asm volatile("csrw stimecmp, %0" : : "r" (x));
 // }
-
-// Machine Environment Configuration Register
+// 
+// // Machine Environment Configuration Register
 // static inline uint64
 // r_menvcfg()
 // {
@@ -197,7 +197,7 @@ r_stvec()
 //   asm volatile("csrr %0, menvcfg" : "=r" (x) );
 //   return x;
 // }
-
+// 
 // static inline void 
 // w_menvcfg(uint64 x)
 // {
@@ -376,3 +376,4 @@ typedef uint64 *pagetable_t; // 512 PTEs
 // Sv39, to avoid having to sign-extend virtual addresses
 // that have the high bit set.
 #define MAXVA (1L << (9 + 9 + 9 + 12 - 1))
+
