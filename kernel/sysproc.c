@@ -98,3 +98,28 @@ sys_uptime(void)
   release(&tickslock);
   return xticks;
 }
+
+
+uint64
+sys_getancestor(void)
+{
+    int n;
+    struct proc *p = myproc();
+
+    // Asegúrate de capturar el valor de retorno de argint y manejar cualquier error
+    if (argint(0, &n) < 0)
+        return -1;
+
+    if (n < 0) // El índice no puede ser negativo
+        return -1;
+
+    for (int i = 0; i < n; i++) {
+        if (p->parent == 0) // Si no hay más ancestros
+            return -1;
+        p = p->parent;
+    }
+
+    return p->pid;
+}
+
+
