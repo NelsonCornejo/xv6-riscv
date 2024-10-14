@@ -123,3 +123,8 @@ sys_getancestor(void)
 }
 
 
+uint64
+sys_getpriority(void)
+{
+  return myproc()->priority;
+}

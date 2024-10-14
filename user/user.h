@@ -44,3 +44,6 @@ void *memcpy(void *, const void *, unsigned int);
 void* malloc(unsigned int);
 void free(void*);
 
+
+// declarara la función para los programas de usuario
+int getpriority(void);

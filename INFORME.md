@@ -1,30 +1,44 @@
-## Funcionamiento de las llamadas al sistema
+## Sistema de Prioridades y Boost en xv6
 
-Las llamadas al sistema implementadas son `getppid()` y `getancestor(int)`. 
+### 1. Funcionamiento y lógica del sistema de prioridades
 
-- **`getppid()`**: Esta llamada devuelve el PID del proceso padre del proceso actual. Es útil para conocer la jerarquía de procesos y rastrear el origen de un proceso en particular.
+El sistema de programación de procesos en xv6 ha sido modificado para incluir un mecanismo de **prioridades** y **boost**. Las prioridades se utilizan para determinar el orden en que los procesos son seleccionados para ejecutarse, donde los números más bajos indican una mayor prioridad.
+
+Cada proceso comienza con una **prioridad inicial de 0**, lo que representa la prioridad más alta. Además, cada proceso tiene un **campo de boost**, que es un factor de ajuste dinámico para cambiar la prioridad durante la ejecución:
+
+- Si la prioridad de un proceso alcanza **9** (la prioridad más baja), el valor de boost cambia a **-1**, lo que reduce su prioridad progresivamente.
+- Si la prioridad de un proceso llega a **0** (la prioridad más alta), el valor de boost cambia a **1**, lo que hace que el proceso eventualmente ceda su turno a otros procesos.
+
+Este sistema permite un balance entre procesos de baja prioridad y procesos de alta prioridad, asegurando que todos obtengan tiempo de CPU de manera equitativa. A medida que los procesos avanzan, su prioridad es ajustada dinámicamente según su boost, permitiendo que los procesos menos prioritarios eventualmente obtengan su tiempo de ejecución.
+
+### 2. Explicación de las modificaciones realizadas
+
+Para implementar este sistema, se realizaron varias modificaciones en el núcleo de xv6:
+
+- Se agregaron dos nuevos campos a la estructura de procesos: **priority** (prioridad) y **boost** (ajuste de prioridad). Estos campos son esenciales para controlar la lógica de prioridades de cada proceso en ejecución.
   
-- **`getancestor(int n)`**: Esta llamada devuelve el PID del ancestro `n` niveles por encima del proceso actual. Por ejemplo, `getancestor(1)` devuelve el PID del padre, `getancestor(2)` devuelve el PID del abuelo, y así sucesivamente. Si el número proporcionado es mayor que el número de ancestros disponibles, se devuelve `-1`.
+- En el momento en que un nuevo proceso es asignado (`allocproc`), se inicializan los valores de **priority** y **boost**. La prioridad se establece en **0** (máxima prioridad) y el boost en **1**.
 
-## Explicación de las modificaciones realizadas
+- La lógica del **scheduler** fue modificada para gestionar el ajuste de prioridades. En cada iteración del scheduler, se revisa y ajusta la prioridad de cada proceso en función de su valor de boost. Si un proceso alcanza los límites de prioridad (0 o 9), el valor de boost se ajusta para evitar que un proceso mantenga indefinidamente la prioridad más alta o más baja.
 
+Este enfoque asegura que los procesos con baja prioridad eventualmente recuperen el acceso al CPU, mientras que los procesos con alta prioridad no monopolizan el sistema.
 
-1. **Definición de las llamadas al sistema**: 
-   Se agregaron las funciones `sys_getppid()` y `sys_getancestor()` en `sysproc.c` para manejar la lógica de estas nuevas llamadas. 
+### 3. Dificultades encontradas y soluciones implementadas
 
-2. **Modificación de `syscall.c` y `syscall.h`**: 
-   Se agregaron los prototipos de las funciones y se actualizaron las tablas de llamadas al sistema para incluir `SYS_getppid` y `SYS_getancestor`.
+#### 3.1. Problemas de concurrencia en la salida estándar
 
-3. **Creación de programas de prueba**:
-   Se crearon los programas `yosoytupadre.c` y `yosoyantecesor.c` para verificar el correcto funcionamiento de las llamadas al sistema. Estos programas se compilaron y ejecutaron como parte del entorno xv6.
+Una de las primeras dificultades encontradas fue al intentar que múltiples procesos imprimieran información al mismo tiempo en la salida estándar. Debido a que varios procesos intentaban imprimir simultáneamente, se generaban **condiciones de carrera** y los caracteres aparecían desordenados o corruptos en la salida.
 
-## Dificultades encontradas y cómo se resolvieron
+**Solución**: Para resolver este problema, se implementó un sistema de **locks** que controla el acceso a la salida estándar. Mediante el uso de funciones de bloqueo y desbloqueo, aseguramos que solo un proceso pudiera acceder a la salida estándar a la vez. Esto eliminó los problemas de impresión corrupta.
 
-1. **Problema con la implementación de `getancestor(int)`**:
-   Al principio, hubo problemas para manejar correctamente los argumentos pasados a la llamada al sistema. Esto se resolvió asegurando que la función `argint()` se implementara correctamente para recuperar el parámetro `n` y se realizó un manejo adecuado de errores para casos donde `n` era negativo o superaba el número de ancestros disponibles.
+#### 3.2. Manejo simplificado de la salida de los procesos
 
-2. **Errores de compilación en `syscall.c`**:
-   Durante la implementación, surgieron conflictos de tipos en la función `argint`. Esto se debió a errores de referencia en la estructura `trapframe`. Se resolvió al asegurarnos de que los nombres de los miembros de la estructura fueran correctos y consistentes en todo el código.
+Otra dificultad fue el hecho de que tanto el proceso padre como los hijos intentaban imprimir mensajes al mismo tiempo, lo que resultaba en impresiones desordenadas. Para simplificar este proceso, se decidió que **solo el proceso padre fuera responsable de toda la impresión**. Los procesos hijos simplemente terminan su ejecución sin imprimir información directamente.
 
-3. **Problemas al ejecutar `make qemu`**:
-   En algunos momentos, el sistema no arrancaba correctamente después de agregar nuevas llamadas al sistema. Esto fue solucionado revisando y corrigiendo las modificaciones en `Makefile`, asegurándonos de que todos los archivos fuente y dependencias estuvieran correctamente configurados.
+**Solución**: Al dejar toda la impresión en manos del proceso padre, se eliminó la posibilidad de que múltiples procesos intentaran imprimir simultáneamente. Esto garantizó una salida estándar limpia y ordenada.
+
+#### 3.3. Control de la prioridad y el boost
+
+Finalmente, el ajuste dinámico de las prioridades presentó algunos desafíos iniciales. El balance entre evitar que un proceso monopolizara el CPU y, al mismo tiempo, garantizar que los procesos de baja prioridad eventualmente obtuvieran tiempo de CPU, fue uno de los puntos clave a ajustar. 
+
+**Solución**: La implementación del sistema de boost dinámico resolvió este problema, ya que ajusta las prioridades de los procesos en función de su comportamiento. Esto asegura que todos los procesos obtengan tiempo de CPU sin que los procesos de alta prioridad mantengan su ventaja indefinidamente.

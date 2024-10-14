@@ -125,6 +125,15 @@ found:
   p->pid = allocpid();
   p->state = USED;
 
+
+  // Inicializamos las prioridades y boost
+  p->priority = 0; //Prioridad inicializada en 0
+  p->boost = 1;  //Boost inicializado en 1
+
+
+
+
+
   // Allocate a trapframe page.
   if((p->trapframe = (struct trapframe *)kalloc()) == 0){
     freeproc(p);
@@ -440,7 +449,7 @@ wait(uint64 addr)
 //  - choose a process to run.
 //  - swtch to start running that process.
 //  - eventually that process transfers control
-//    via swtch back to the scheduler.
+
 void
 scheduler(void)
 {
@@ -448,37 +457,75 @@ scheduler(void)
   struct cpu *c = mycpu();
 
   c->proc = 0;
+
   for(;;){
-    // The most recent process to run may have had interrupts
-    // turned off; enable them to avoid a deadlock if all
-    // processes are waiting.
+    // Enable interrupts on this processor.
     intr_on();
 
-    int found = 0;
+    struct proc *selected_proc = 0;  // Proceso con la prioridad más alta
+    int max_priority = 10;  // Prioridad máxima posible (ya que la mínima es 0)
+ 
+    // Buscar el proceso con la mayor prioridad (el menor valor de "priority")
     for(p = proc; p < &proc[NPROC]; p++) {
       acquire(&p->lock);
-      if(p->state == RUNNABLE) {
-        // Switch to chosen process.  It is the process's job
-        // to release its lock and then reacquire it
-        // before jumping back to us.
-        p->state = RUNNING;
-        c->proc = p;
-        swtch(&c->context, &p->context);
 
-        // Process is done running for now.
-        // It should have changed its p->state before coming back.
-        c->proc = 0;
-        found = 1;
+      // Solo consideramos los procesos que están en estado RUNNABLE
+      if(p->state == RUNNABLE) {
+
+        // Actualización de la prioridad basada en el boost
+        p->priority += p->boost;
+
+        // Asegurarse de que la prioridad no exceda los límites [0, 9]
+        if(p->priority > 9) {
+          p->priority = 9;  // Limitar prioridad superior a 9
+        } else if(p->priority < 0) {
+          p->priority = 0;  // Limitar prioridad inferior a 0
+        }
+
+        // Si la prioridad alcanza 9, cambiar el boost a -1
+        if(p->priority == 9) {
+          p->boost = -1;
+        }
+        // Si la prioridad llega a 0, cambiar el boost a 1
+        else if(p->priority == 0) {
+          p->boost = 1;
+        }
+
+        // Seleccionar el proceso con la mayor prioridad (menor número)
+        if(p->priority < max_priority) {
+          selected_proc = p;
+          max_priority = p->priority;
+        }
       }
+
       release(&p->lock);
     }
-    if(found == 0) {
-      // nothing to run; stop running on this core until an interrupt.
+
+    // Si encontramos un proceso con la prioridad más alta, ejecutarlo
+    if(selected_proc) {
+      acquire(&selected_proc->lock);
+
+      if(selected_proc->state == RUNNABLE) {
+        // Cambiar el estado a RUNNING y ejecutar el proceso
+        selected_proc->state = RUNNING;
+        c->proc = selected_proc;
+        swtch(&c->context, &selected_proc->context);
+
+        // Al regresar del proceso, debe haber cambiado su estado
+        c->proc = 0;
+      }
+
+      release(&selected_proc->lock);
+    } else {
+      // No hay procesos RUNNABLE; dormir el CPU hasta la próxima interrupción
       intr_on();
       asm volatile("wfi");
     }
   }
 }
+
+
+
 
 // Switch to scheduler.  Must hold only p->lock
 // and have changed proc->state. Saves and restores
