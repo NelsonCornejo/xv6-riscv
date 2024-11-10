@@ -5,6 +5,8 @@
 #include "riscv.h"
 #include "defs.h"
 #include "fs.h"
+#include "proc.h"
+#include "spinlock.h"
 
 /*
  * the kernel's page table.
@@ -448,4 +450,56 @@ copyinstr(pagetable_t pagetable, char *dst, uint64 srcva, uint64 max)
   } else {
     return -1;
   }
+}
+
+
+
+int 
+mprotect(void *addr, int len) {
+    struct proc *p = myproc();
+
+    // Verificar que la dirección esté alineada a los límites de página y que la longitud sea válida
+    if ((uint64)addr % PGSIZE != 0 || len <= 0) {
+        return -1;
+    }
+
+    // Iterar sobre las páginas en el rango especificado por `len`
+    for (int i = 0; i < len; i++) {  // Cambié len * PGSIZE a len
+        pte_t *pte = walk(p->pagetable, (uint64)addr + i * PGSIZE, 0); // Desplazamiento de página
+        if (pte == 0 || (*pte & PTE_V) == 0) {
+            return -1;  // Si la PTE no es válida, regresa error
+        }
+        // Desactiva el bit de escritura (PTE_W) para hacer la página de solo lectura
+        *pte &= ~PTE_W;
+    }
+
+    // Limpiar la TLB para que los cambios en los permisos se reflejen
+    sfence_vma();
+    printf("sfence_vma ejecutado1.1, cambios aplicados.\n");
+    return 0;
+}
+
+
+int
+munprotect(void *addr, int len) {
+    struct proc *p = myproc();
+
+    // Verifica que la dirección esté alineada a los límites de página y que la longitud sea válida.
+    if ((uint64)addr % PGSIZE != 0 || len <= 0)
+        return -1;
+
+    // Recorre cada página en el rango especificado
+    for (int i = 0; i < len; i++) {  // Cambié len * PGSIZE a len
+        pte_t *pte = walk(p->pagetable, (uint64)addr + i * PGSIZE, 0); // Desplazamiento de página
+        if (pte == 0 || (*pte & PTE_V) == 0)
+            return -1;  // Si la PTE no es válida, regresa un error.
+
+        // Reactiva el bit de escritura (PTE_W) para permitir escritura en la página
+        *pte |= PTE_W;
+    }
+
+    // Refresca la TLB para que los cambios en los permisos se reflejen inmediatamente
+    sfence_vma();
+    printf("sfence_vma ejecutado2.2, cambios aplicados.\n");
+    return 0;
 }

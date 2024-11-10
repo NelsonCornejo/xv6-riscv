@@ -142,6 +142,7 @@ UPROGS=\
 	$U/_yosoytupadre\
 	$U/_yosoyantecesor\
 	$U/_test_priority\
+	$U/_test_mprotect\
 
 fs.img: mkfs/mkfs README $(UPROGS)
 	mkfs/mkfs fs.img README $(UPROGS)

@@ -47,3 +47,7 @@ void free(void*);
 
 // declarara la función para los programas de usuario
 int getpriority(void);
+
+// TAREA 3z
+int mprotect(void *addr, int len);
+int munprotect(void *addr, int len);

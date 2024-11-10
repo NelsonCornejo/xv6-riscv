@@ -67,6 +67,9 @@ usertrap(void)
     syscall();
   } else if((which_dev = devintr()) != 0){
     // ok
+  } else if (r_scause() == 15) {  // Nueva condición para una trampa de protección de página
+    printf("Protección de página activada: intento de escritura en dirección 0x%lx\n", r_stval());
+    setkilled(p);  // Marca el proceso para terminar debido a la violación de protección
   } else {
     printf("usertrap(): unexpected scause 0x%lx pid=%d\n", r_scause(), p->pid);
     printf("            sepc=0x%lx stval=0x%lx\n", r_sepc(), r_stval());
@@ -82,6 +85,7 @@ usertrap(void)
 
   usertrapret();
 }
+
 
 //
 // return to user space

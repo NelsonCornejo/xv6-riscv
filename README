@@ -1,37 +1,51 @@
-Sistema de Prioridades y Boost en xv6
+# Informe - Protección de Memoria en xv6
 
-1. Funcionamiento y lógica del sistema de prioridades
-El sistema de programación de procesos en xv6 ha sido modificado para incluir un mecanismo de prioridades y boost. Las prioridades se utilizan para determinar el orden en que los procesos son seleccionados para ejecutarse, donde los números más bajos indican una mayor prioridad.
+## 1. Funcionamiento y lógica de la protección de memoria
 
-Cada proceso comienza con una prioridad inicial de 0, lo que representa la prioridad más alta. Además, cada proceso tiene un campo de boost, que es un factor de ajuste dinámico para cambiar la prioridad durante la ejecución:
+El sistema implementado en xv6 permite modificar los permisos de acceso a la memoria de los procesos mediante las llamadas al sistema `mprotect` y `munprotect`. La protección de memoria consiste en restringir el acceso a ciertas áreas de memoria para que los procesos puedan marcar regiones de memoria como **solo lectura** o **escribibles**.
 
-Si la prioridad de un proceso alcanza 9 (la prioridad más baja), el valor de boost cambia a -1, lo que reduce su prioridad progresivamente.
-Si la prioridad de un proceso llega a 0 (la prioridad más alta), el valor de boost cambia a 1, lo que hace que el proceso eventualmente ceda su turno a otros procesos.
-Este sistema permite un balance entre procesos de baja prioridad y procesos de alta prioridad, asegurando que todos obtengan tiempo de CPU de manera equitativa. A medida que los procesos avanzan, su prioridad es ajustada dinámicamente según su boost, permitiendo que los procesos menos prioritarios eventualmente obtengan su tiempo de ejecución.
+### `mprotect`
+La función `mprotect` permite cambiar los permisos de una región de memoria específica, estableciendo que esa región sea **solo lectura**, lo que impide la escritura en la memoria protegida. Cuando un proceso intenta escribir en una región de memoria protegida, se produce un **segfault** (error de segmentación), lo cual se maneja para indicar que no se puede escribir en dicha zona.
 
-2. Explicación de las modificaciones realizadas
-Para implementar este sistema, se realizaron varias modificaciones en el núcleo de xv6:
+### `munprotect`
+Por otro lado, `munprotect` revierte los cambios realizados por `mprotect`, permitiendo la escritura nuevamente en la región de memoria previamente protegida.
 
-Se agregaron dos nuevos campos a la estructura de procesos: priority (prioridad) y boost (ajuste de prioridad). Estos campos son esenciales para controlar la lógica de prioridades de cada proceso en ejecución.
+Para que estos cambios se apliquen correctamente, la TLB (Translation Lookaside Buffer) debe ser invalidada utilizando la función `sfence_vma`, lo que asegura que los cambios de protección sean inmediatamente reflejados.
 
-En el momento en que un nuevo proceso es asignado (allocproc), se inicializan los valores de priority y boost. La prioridad se establece en 0 (máxima prioridad) y el boost en 1.
+## 2. Explicación de las modificaciones realizadas
 
-La lógica del scheduler fue modificada para gestionar el ajuste de prioridades. En cada iteración del scheduler, se revisa y ajusta la prioridad de cada proceso en función de su valor de boost. Si un proceso alcanza los límites de prioridad (0 o 9), el valor de boost se ajusta para evitar que un proceso mantenga indefinidamente la prioridad más alta o más baja.
+Para implementar la protección de memoria en xv6, se realizaron varias modificaciones importantes:
 
-Este enfoque asegura que los procesos con baja prioridad eventualmente recuperen el acceso al CPU, mientras que los procesos con alta prioridad no monopolizan el sistema.
+1. **Añadido de nuevas llamadas al sistema**:
+   Se implementaron dos nuevas llamadas al sistema: `mprotect` y `munprotect`, que son responsables de modificar los permisos de acceso a las páginas de memoria de los procesos.
 
-3. Dificultades encontradas y soluciones implementadas
-3.1. Problemas de concurrencia en la salida estándar
-Una de las primeras dificultades encontradas fue al intentar que múltiples procesos imprimieran información al mismo tiempo en la salida estándar. Debido a que varios procesos intentaban imprimir simultáneamente, se generaban condiciones de carrera y los caracteres aparecían desordenados o corruptos en la salida.
+2. **Modificaciones en la gestión de la tabla de páginas**:
+   Se extendió la funcionalidad de la tabla de páginas para permitir la manipulación de los permisos de cada página (PTE_W para escritura). Esto permite que la memoria de un proceso pueda ser marcada como solo lectura o escritura.
 
-Solución: Para resolver este problema, se implementó un sistema de locks que controla el acceso a la salida estándar. Mediante el uso de funciones de bloqueo y desbloqueo, aseguramos que solo un proceso pudiera acceder a la salida estándar a la vez. Esto eliminó los problemas de impresión corrupta.
+3. **Control de acceso a la memoria**:
+   El control del acceso a la memoria se realiza utilizando la función `walk` para acceder a la tabla de páginas y modificar el permiso de las páginas solicitadas.
 
-3.2. Manejo simplificado de la salida de los procesos
-Otra dificultad fue el hecho de que tanto el proceso padre como los hijos intentaban imprimir mensajes al mismo tiempo, lo que resultaba en impresiones desordenadas. Para simplificar este proceso, se decidió que solo el proceso padre fuera responsable de toda la impresión. Los procesos hijos simplemente terminan su ejecución sin imprimir información directamente.
+4. **Actualización de la TLB**:
+   Para aplicar los cambios realizados a la tabla de páginas, se usa la función `sfence_vma`, que limpia la TLB y asegura que los permisos de acceso sean correctamente aplicados.
 
-Solución: Al dejar toda la impresión en manos del proceso padre, se eliminó la posibilidad de que múltiples procesos intentaran imprimir simultáneamente. Esto garantizó una salida estándar limpia y ordenada.
+## 3. Dificultades encontradas y soluciones implementadas
 
-3.3. Control de la prioridad y el boost
-Finalmente, el ajuste dinámico de las prioridades presentó algunos desafíos iniciales. El balance entre evitar que un proceso monopolizara el CPU y, al mismo tiempo, garantizar que los procesos de baja prioridad eventualmente obtuvieran tiempo de CPU, fue uno de los puntos clave a ajustar.
+### 3.1. Dificultades con la escritura en memoria protegida
 
-Solución: La implementación del sistema de boost dinámico resolvió este problema, ya que ajusta las prioridades de los procesos en función de su comportamiento. Esto asegura que todos los procesos obtengan tiempo de CPU sin que los procesos de alta prioridad mantengan su ventaja indefinidamente.
+**Problema**:
+Cuando se intenta escribir en una región de memoria marcada como solo lectura mediante `mprotect`, el sistema debe generar una excepción y evitar la escritura. El problema radicaba en asegurar que este comportamiento se manejara correctamente sin afectar la ejecución del sistema.
+
+**Solución**:
+Se implementó un manejo adecuado de excepciones de tipo **segfault** para capturar los intentos de escritura en páginas protegidas, y se utilizó la TLB para aplicar cambios en los permisos de las páginas de manera eficiente. Cuando el proceso intentaba escribir, se generaba una señal de error de segmentación (segfault), indicando que no estaba permitido modificar esa memoria.
+
+### 3.2. Necesidad de invalidar la TLB para reflejar los cambios
+
+**Problema**:
+Después de modificar los permisos de las páginas, era necesario asegurar que los cambios se aplicaran inmediatamente, lo cual no sucedía correctamente sin invalidar la TLB.
+
+**Solución**:
+Se utilizó la función `sfence_vma` para limpiar la TLB, forzando la actualización de las tablas de páginas y asegurando que los permisos se reflejaran de inmediato.
+
+## 4. Conclusiones
+
+La implementación de `mprotect` y `munprotect` ha sido exitosa y permite un control fino sobre el acceso a la memoria de los procesos. Al realizar estas modificaciones, se ha logrado mejorar la seguridad y el control de los procesos en xv6, asegurando que no puedan modificar áreas de memoria críticas sin autorización. Las dificultades encontradas, como el manejo de excepciones y la invalidación de la TLB, fueron solucionadas con las técnicas descritas. La protección de memoria es una característica fundamental para evitar el acceso no autorizado a áreas de memoria y asegurar que el sistema se comporte de manera estable y segura.

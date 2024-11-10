@@ -5,6 +5,11 @@
 #include "memlayout.h"
 #include "spinlock.h"
 #include "proc.h"
+#include "vm.h"
+
+int mprotect(void *addr, int len);
+int munprotect(void *addr, int len);
+
 
 uint64
 sys_exit(void)
@@ -127,4 +132,31 @@ uint64
 sys_getpriority(void)
 {
   return myproc()->priority;
+}
+
+
+
+
+uint64
+sys_mprotect(void) {
+    int addr;
+    int len;
+
+    if (argint(0, &addr) < 0 || argint(1, &len) < 0) {
+        return -1;
+    }
+
+    return mprotect((void *)(uint64)addr, len);
+}
+
+uint64
+sys_munprotect(void) {
+    int addr;
+    int len;
+
+    if (argint(0, &addr) < 0 || argint(1, &len) < 0) {
+        return -1;
+    }
+
+    return munprotect((void *)(uint64)addr, len);
 }

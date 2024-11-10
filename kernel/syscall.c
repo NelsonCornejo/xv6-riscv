@@ -103,6 +103,27 @@ argstr(int n, char *buf, int max)
   return fetchstr(addr, buf, max);
 }
 
+
+int
+argptr(int n, char **pp, int size)
+{
+    uint64 addr;
+    
+    // Usa argint para obtener el argumento como entero y luego convertirlo a un puntero
+    if (argint(n, (int *)&addr) < 0) {  // Usa argint con un cast si es necesario
+        return -1;
+    }
+
+    struct proc *p = myproc();
+    if (addr >= p->sz || addr + size > p->sz) {
+        return -1;
+    }
+
+    *pp = (char *)addr;
+    return 0;
+}
+
+
 // Prototypes for the functions that handle system calls.
 extern uint64 sys_fork(void);
 extern uint64 sys_exit(void);
@@ -128,6 +149,8 @@ extern uint64 sys_close(void);
 extern uint64 sys_getppid(void);
 extern uint64 sys_getancestor(void);
 extern uint64 sys_getpriority(void);
+extern uint64 sys_mprotect(void);
+extern uint64 sys_munprotect(void);
 
 // An array mapping syscall numbers from syscall.h
 // to the function that handles the system call.
@@ -155,7 +178,9 @@ static uint64 (*syscalls[])(void) = {
 [SYS_close]   sys_close,
 [SYS_getppid] sys_getppid,
 [SYS_getancestor] sys_getancestor,
-[SYS_getpriority] sys_getpriority
+[SYS_getpriority] sys_getpriority,
+[SYS_mprotect] sys_mprotect,
+[SYS_munprotect] sys_munprotect
 };
 
 void

@@ -5,6 +5,10 @@
 #include "spinlock.h"
 #include "proc.h"
 #include "defs.h"
+#include "syscall.h"
+
+
+int argptr(int, char **, int);
 
 struct cpu cpus[NCPU];
 
@@ -740,3 +744,4 @@ procdump(void)
     printf("\n");
   }
 }
+
