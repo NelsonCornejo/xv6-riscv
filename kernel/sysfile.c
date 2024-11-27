@@ -328,6 +328,19 @@ sys_open(void)
       return -1;
     }
     ilock(ip);
+
+    // Verificar permisos según el modo de apertura
+    if((omode & O_WRONLY) && !(ip->permissions & 2)){ // Escritura no permitida
+      iunlockput(ip);
+      end_op();
+      return -1;
+    }
+    if((omode & O_RDONLY) && !(ip->permissions & 1)){ // Lectura no permitida
+      iunlockput(ip);
+      end_op();
+      return -1;
+    }
+
     if(ip->type == T_DIR && omode != O_RDONLY){
       iunlockput(ip);
       end_op();

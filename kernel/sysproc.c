@@ -6,6 +6,9 @@
 #include "spinlock.h"
 #include "proc.h"
 #include "vm.h"
+#include "fs.h"
+#include "file.h"
+
 
 int mprotect(void *addr, int len);
 int munprotect(void *addr, int len);
@@ -159,4 +162,21 @@ sys_munprotect(void) {
     }
 
     return munprotect((void *)(uint64)addr, len);
+}
+
+
+uint64 
+sys_chmod(void) {
+    char path[MAXPATH];
+    int mode;
+    if (argstr(0, path, MAXPATH) < 0 || argint(1, &mode) < 0) {
+        return -1; // Parámetros inválidos
+    }
+    struct inode *ip = namei(path);
+    if (!ip) return -1; // Archivo no encontrado
+    ilock(ip);
+    ip->permissions = mode; // Cambiar permisos
+    iupdate(ip);
+    iunlockput(ip);
+    return 0;
 }

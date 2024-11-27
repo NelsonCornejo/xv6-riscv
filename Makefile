@@ -143,6 +143,7 @@ UPROGS=\
 	$U/_yosoyantecesor\
 	$U/_test_priority\
 	$U/_test_mprotect\
+	$U/_chmod_test\
 
 fs.img: mkfs/mkfs README $(UPROGS)
 	mkfs/mkfs fs.img README $(UPROGS)

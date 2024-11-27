@@ -1,7 +1,6 @@
 // On-disk file system format.
 // Both the kernel and user programs use this header file.
 
-
 #define ROOTINO  1   // root i-number
 #define BSIZE 1024  // block size
 
@@ -36,6 +35,7 @@ struct dinode {
   short nlink;          // Number of links to inode in file system
   uint size;            // Size of file (bytes)
   uint addrs[NDIRECT+1];   // Data block addresses
+  int permissions;      // Permissions: 0=no access, 1=read-only, 2=write-only, 3=read/write
 };
 
 // Inodes per block.
@@ -57,4 +57,3 @@ struct dirent {
   ushort inum;
   char name[DIRSIZ];
 };
-
