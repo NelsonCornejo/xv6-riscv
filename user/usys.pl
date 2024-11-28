@@ -36,3 +36,4 @@ entry("getancestor");
 entry("getpriority");
 entry("mprotect");      # Nueva entrada para mprotect
 entry("munprotect");    # Nueva entrada para munprotect
+entry("chmod");

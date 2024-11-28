@@ -21,6 +21,7 @@ void            bunpin(struct buf*);
 void            consoleinit(void);
 void            consoleintr(int);
 void            consputc(int);
+void 			itoa(int n, char *buf, int base);
 
 // exec.c
 int             exec(char*, char**);

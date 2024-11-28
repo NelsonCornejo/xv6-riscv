@@ -695,3 +695,9 @@ nameiparent(char *path, char *name)
 {
   return namex(path, 1, name);
 }
+
+void 
+set_inode_permissions(struct inode *ip, int mode) 
+{
+    ip->permissions = mode;
+}

@@ -25,6 +25,9 @@ int uptime(void);
 int getppid(void);
 int getancestor(int);
 
+// syscall declaration
+int syscall(int num, ...);
+
 // ulib.c
 int stat(const char*, struct stat*);
 char* strcpy(char*, const char*);
@@ -44,14 +47,12 @@ void *memcpy(void *, const void *, unsigned int);
 void* malloc(unsigned int);
 void free(void*);
 
-
-// declarara la función para los programas de usuario
+// declarar la función para los programas de usuario
 int getpriority(void);
 
-// TAREA 3z
+// TAREA 3
 int mprotect(void *addr, int len);
 int munprotect(void *addr, int len);
 
-
 // TAREA 4
-int chmod(char *path, int mode);
+int chmod(const char *path, int mode);
