@@ -52,36 +52,12 @@ argraw(int n)
   return -1;
 }
 
-// Fetch the nth 32-bit system call argument
-
-
-int argint(int n, int *ip) {
-    struct proc *p = myproc();
-    switch (n) {
-        case 0:
-            *ip = p->trapframe->a0;
-            break;
-        case 1:
-            *ip = p->trapframe->a1;
-            break;
-        case 2:
-            *ip = p->trapframe->a2;
-            break;
-        case 3:
-            *ip = p->trapframe->a3;
-            break;
-        case 4:
-            *ip = p->trapframe->a4;
-            break;
-        case 5:
-            *ip = p->trapframe->a5;
-            break;
-        default:
-            return -1;  // Número de argumento inválido
-    }
-    return 0;
+// Fetch the nth 32-bit system call argument.
+void
+argint(int n, int *ip)
+{
+  *ip = argraw(n);
 }
-
 
 // Retrieve an argument as a pointer.
 // Doesn't check for legality, since
@@ -102,27 +78,6 @@ argstr(int n, char *buf, int max)
   argaddr(n, &addr);
   return fetchstr(addr, buf, max);
 }
-
-
-int
-argptr(int n, char **pp, int size)
-{
-    uint64 addr;
-    
-    // Usa argint para obtener el argumento como entero y luego convertirlo a un puntero
-    if (argint(n, (int *)&addr) < 0) {  // Usa argint con un cast si es necesario
-        return -1;
-    }
-
-    struct proc *p = myproc();
-    if (addr >= p->sz || addr + size > p->sz) {
-        return -1;
-    }
-
-    *pp = (char *)addr;
-    return 0;
-}
-
 
 // Prototypes for the functions that handle system calls.
 extern uint64 sys_fork(void);
@@ -146,11 +101,6 @@ extern uint64 sys_unlink(void);
 extern uint64 sys_link(void);
 extern uint64 sys_mkdir(void);
 extern uint64 sys_close(void);
-extern uint64 sys_getppid(void);
-extern uint64 sys_getancestor(void);
-extern uint64 sys_getpriority(void);
-extern uint64 sys_mprotect(void);
-extern uint64 sys_munprotect(void);
 extern uint64 sys_chmod(void);
 
 // An array mapping syscall numbers from syscall.h
@@ -177,12 +127,7 @@ static uint64 (*syscalls[])(void) = {
 [SYS_link]    sys_link,
 [SYS_mkdir]   sys_mkdir,
 [SYS_close]   sys_close,
-[SYS_getppid] sys_getppid,
-[SYS_getancestor] sys_getancestor,
-[SYS_getpriority] sys_getpriority,
-[SYS_mprotect] sys_mprotect,
-[SYS_munprotect] sys_munprotect,
-[SYS_chmod] sys_chmod
+[SYS_chmod]   sys_chmod,
 };
 
 void

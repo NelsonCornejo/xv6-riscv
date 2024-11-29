@@ -5,164 +5,89 @@
 #include "memlayout.h"
 #include "spinlock.h"
 #include "proc.h"
-#include "vm.h"
-#include "fs.h"
-#include "file.h"
 
-// Declaración de funciones necesarias
-extern void set_inode_permissions(struct inode *ip, int mode);
-
-int mprotect(void *addr, int len);
-int munprotect(void *addr, int len);
-
-uint64 sys_exit(void)
+uint64
+sys_exit(void)
 {
-    int n;
-    argint(0, &n);
-    exit(n);
-    return 0; // not reached
+  int n;
+  argint(0, &n);
+  exit(n);
+  return 0;  // not reached
 }
 
-uint64 sys_getpid(void)
+uint64
+sys_getpid(void)
 {
-    return myproc()->pid;
+  return myproc()->pid;
 }
 
-uint64 sys_fork(void)
+uint64
+sys_fork(void)
 {
-    return fork();
+  return fork();
 }
 
-uint64 sys_wait(void)
+uint64
+sys_wait(void)
 {
-    uint64 p;
-    argaddr(0, &p);
-    return wait(p);
+  uint64 p;
+  argaddr(0, &p);
+  return wait(p);
 }
 
-uint64 sys_sbrk(void)
+uint64
+sys_sbrk(void)
 {
-    uint64 addr;
-    int n;
+  uint64 addr;
+  int n;
 
-    argint(0, &n);
-    addr = myproc()->sz;
-    if (growproc(n) < 0)
-        return -1;
-    return addr;
+  argint(0, &n);
+  addr = myproc()->sz;
+  if(growproc(n) < 0)
+    return -1;
+  return addr;
 }
 
-uint64 sys_sleep(void)
+uint64
+sys_sleep(void)
 {
-    int n;
-    uint ticks0;
+  int n;
+  uint ticks0;
 
-    argint(0, &n);
-    if (n < 0)
-        n = 0;
-    acquire(&tickslock);
-    ticks0 = ticks;
-    while (ticks - ticks0 < n)
-    {
-        if (killed(myproc()))
-        {
-            release(&tickslock);
-            return -1;
-        }
-        sleep(&ticks, &tickslock);
+  argint(0, &n);
+  if(n < 0)
+    n = 0;
+  acquire(&tickslock);
+  ticks0 = ticks;
+  while(ticks - ticks0 < n){
+    if(killed(myproc())){
+      release(&tickslock);
+      return -1;
     }
-    release(&tickslock);
-    return 0;
+    sleep(&ticks, &tickslock);
+  }
+  release(&tickslock);
+  return 0;
 }
 
-uint64 sys_kill(void)
+uint64
+sys_kill(void)
 {
-    int pid;
+  int pid;
 
-    argint(0, &pid);
-    return kill(pid);
+  argint(0, &pid);
+  return kill(pid);
 }
 
-uint64 sys_getppid(void)
+// return how many clock tick interrupts have occurred
+// since start.
+uint64
+sys_uptime(void)
 {
-    return myproc()->parent->pid;
-}
+  uint xticks;
 
-// return how many clock tick interrupts have occurred since start.
-uint64 sys_uptime(void)
-{
-    uint xticks;
-
-    acquire(&tickslock);
-    xticks = ticks;
-    release(&tickslock);
-    return xticks;
-}
-
-uint64 sys_getancestor(void)
-{
-    int n;
-    struct proc *p = myproc();
-
-    // Asegúrate de capturar el valor de retorno de argint y manejar cualquier error
-    if (argint(0, &n) < 0)
-        return -1;
-
-    if (n < 0) // El índice no puede ser negativo
-        return -1;
-
-    for (int i = 0; i < n; i++)
-    {
-        if (p->parent == 0) // Si no hay más ancestros
-            return -1;
-        p = p->parent;
-    }
-
-    return p->pid;
-}
-
-uint64 sys_getpriority(void)
-{
-    return myproc()->priority;
-}
-
-uint64 sys_mprotect(void)
-{
-    int addr;
-    int len;
-
-    if (argint(0, &addr) < 0 || argint(1, &len) < 0)
-    {
-        return -1;
-    }
-
-    return mprotect((void *)(uint64)addr, len);
-}
-
-uint64 sys_munprotect(void)
-{
-    int addr;
-    int len;
-
-    if (argint(0, &addr) < 0 || argint(1, &len) < 0)
-    {
-        return -1;
-    }
-
-    return munprotect((void *)(uint64)addr, len);
-}
-
-uint64 sys_chmod(void) {
-    char path[MAXPATH];
-    int mode;
-    if (argstr(0, path, MAXPATH) < 0 || argint(1, &mode) < 0) {
-        return -1; // Error en los parámetros
-    }
-    struct inode *ip = namei(path);
-    if (!ip) return -1; // Archivo no encontrado
-    ilock(ip);
-    set_inode_permissions(ip, mode); // Cambiar permisos
-    iupdate(ip);
-    iunlockput(ip);
-    return 0; // Éxito
+  acquire(&tickslock);
+  xticks = ticks;
+  release(&tickslock);
+  return xticks;
 }

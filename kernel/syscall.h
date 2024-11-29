@@ -20,9 +20,4 @@
 #define SYS_link   19
 #define SYS_mkdir  20
 #define SYS_close  21
-#define SYS_getppid 22
-#define SYS_getancestor 23
-#define SYS_getpriority 24
-#define SYS_mprotect 25   
-#define SYS_munprotect 26
-#define SYS_chmod 27
+#define SYS_chmod  22

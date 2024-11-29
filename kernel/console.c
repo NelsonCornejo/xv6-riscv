@@ -11,22 +11,16 @@
 
 #include <stdarg.h>
 
-
-
-
 #include "types.h"
 #include "param.h"
 #include "spinlock.h"
-#include "file.h"   // Incluye funciones relacionadas con archivos
+#include "sleeplock.h"
+#include "fs.h"
+#include "file.h"
 #include "memlayout.h"
 #include "riscv.h"
 #include "defs.h"
 #include "proc.h"
-#include "console.h"
-
-
-
-
 
 #define BACKSPACE 0x100
 #define C(x)  ((x)-'@')  // Control-x
@@ -195,83 +189,4 @@ consoleinit(void)
   // to consoleread and consolewrite.
   devsw[CONSOLE].read = consoleread;
   devsw[CONSOLE].write = consolewrite;
-}
-
-
-
-// Implementación simplificada de vsnprintf
-static void format_string(char *buf, const char *fmt, va_list args) {
-  char *p;
-  int num;
-  char temp[32];
-
-  for (p = buf; *fmt; fmt++) {
-    if (*fmt != '%') {
-      *p++ = *fmt;
-      continue;
-    }
-
-    fmt++; // Avanza al siguiente carácter después de '%'
-
-    switch (*fmt) {
-    case 'd': // Número decimal
-      num = va_arg(args, int);
-      itoa(num, temp, 10); // Convierte número a string
-      for (char *t = temp; *t; t++) {
-        *p++ = *t;
-      }
-      break;
-
-    case 's': // Cadena
-      for (char *s = va_arg(args, char *); *s; s++) {
-        *p++ = *s;
-      }
-      break;
-
-    default: // Caracter no reconocido
-      *p++ = '%';
-      *p++ = *fmt;
-      break;
-    }
-  }
-
-  *p = '\0'; // Termina la cadena
-}
-
-// Implementación de cprintf
-int cprintf(const char *fmt, ...) {
-  char buf[256]; // Buffer para el mensaje
-  va_list args;  // Lista de argumentos variables
-
-  va_start(args, fmt); // Inicia la lista de argumentos
-  format_string(buf, fmt, args); // Formatea la cadena
-  va_end(args); // Termina la lista de argumentos
-
-  // Escribe el mensaje en la consola usando consputc
-  for (char *p = buf; *p; p++) {
-    consputc(*p);
-  }
-
-  return 0; // Indica éxito
-}
-
-void itoa(int n, char *buf, int base) {
-  char *p = buf;
-  int sign = n < 0 ? -1 : 1;
-  if (n < 0) n = -n;
-
-  do {
-      *p++ = "0123456789abcdef"[n % base];
-      n /= base;
-  } while (n > 0);
-
-  if (sign < 0) *p++ = '-';
-  *p = '\0';
-
-  // Invierte la cadena
-  for (char *q = buf, *r = p - 1; q < r; q++, r--) {
-      char temp = *q;
-      *q = *r;
-      *r = temp;
-  }
 }

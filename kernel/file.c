@@ -119,11 +119,6 @@ fileread(struct file *f, uint64 addr, int n)
     r = devsw[f->major].read(1, addr, n);
   } else if(f->type == FD_INODE){
     ilock(f->ip);
-    // Validar permisos de lectura
-    if(!(f->ip->permissions & 1)) { // Permiso de lectura no permitido
-      iunlock(f->ip);
-      return -1;
-    }
     if((r = readi(f->ip, 1, addr, f->off, n)) > 0)
       f->off += r;
     iunlock(f->ip);
@@ -151,12 +146,6 @@ filewrite(struct file *f, uint64 addr, int n)
       return -1;
     ret = devsw[f->major].write(1, addr, n);
   } else if(f->type == FD_INODE){
-    // Validar permisos de escritura
-    ilock(f->ip);
-    if(!(f->ip->permissions & 2)) { // Permiso de escritura no permitido
-      iunlock(f->ip);
-      return -1;
-    }
     // write a few blocks at a time to avoid exceeding
     // the maximum log transaction size, including
     // i-node, indirect block, allocation blocks,
@@ -171,6 +160,7 @@ filewrite(struct file *f, uint64 addr, int n)
         n1 = max;
 
       begin_op();
+      ilock(f->ip);
       if ((r = writei(f->ip, 1, addr + i, f->off, n1)) > 0)
         f->off += r;
       iunlock(f->ip);
@@ -189,3 +179,4 @@ filewrite(struct file *f, uint64 addr, int n)
 
   return ret;
 }
+

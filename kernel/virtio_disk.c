@@ -5,7 +5,6 @@
 // qemu ... -drive file=fs.img,if=none,format=raw,id=x0 -device virtio-blk-device,drive=x0,bus=virtio-mmio-bus.0
 //
 
-#include "kernel/console.h"
 #include "types.h"
 #include "riscv.h"
 #include "defs.h"
@@ -297,36 +296,28 @@ virtio_disk_intr()
 {
   acquire(&disk.vdisk_lock);
 
-  // El dispositivo no generará otra interrupción hasta que le indiquemos
+  // the device won't raise another interrupt until we tell it
+  // we've seen this interrupt, which the following line does.
+  // this may race with the device writing new entries to
+  // the "used" ring, in which case we may process the new
+  // completion entries in this interrupt, and have nothing to do
+  // in the next interrupt, which is harmless.
   *R(VIRTIO_MMIO_INTERRUPT_ACK) = *R(VIRTIO_MMIO_INTERRUPT_STATUS) & 0x3;
 
   __sync_synchronize();
 
-  // El dispositivo incrementa disk.used->idx cuando agrega una entrada al anillo usado.
-  while (disk.used_idx != disk.used->idx) {
+  // the device increments disk.used->idx when it
+  // adds an entry to the used ring.
+
+  while(disk.used_idx != disk.used->idx){
     __sync_synchronize();
     int id = disk.used->ring[disk.used_idx % NUM].id;
 
-    // Verificar que el ID sea válido
-    if (id < 0 || id >= NUM) {
-      cprintf("virtio_disk_intr: INVALID ID - id=%d used_idx=%d\n", id, disk.used_idx);
-      panic("virtio_disk_intr invalid id");
-    }
-
-    // Verificar el estado antes de procesar
-    cprintf("virtio_disk_intr: Checking status for id=%d used_idx=%d status=%d\n", 
-           id, disk.used_idx, disk.info[id].status);
-
-    if (disk.info[id].status != 0) {
-      cprintf("virtio_disk_intr: ERROR - status=%d id=%d used_idx=%d\n", 
-             disk.info[id].status, id, disk.used_idx);
+    if(disk.info[id].status != 0)
       panic("virtio_disk_intr status");
-    }
 
-    // Procesar buffer
-    cprintf("virtio_disk_intr: Processing buffer for id=%d used_idx=%d\n", id, disk.used_idx);
     struct buf *b = disk.info[id].b;
-    b->disk = 0;   // El disco ha terminado con este buffer
+    b->disk = 0;   // disk is done with buf
     wakeup(b);
 
     disk.used_idx += 1;

@@ -208,6 +208,7 @@ ialloc(uint dev, short type)
     if(dip->type == 0){  // a free inode
       memset(dip, 0, sizeof(*dip));
       dip->type = type;
+      dip->perm = 3; // Establecer permisos de lectura y escritura
       log_write(bp);   // mark it allocated on the disk
       brelse(bp);
       return iget(dev, inum);
@@ -694,10 +695,4 @@ struct inode*
 nameiparent(char *path, char *name)
 {
   return namex(path, 1, name);
-}
-
-void 
-set_inode_permissions(struct inode *ip, int mode) 
-{
-    ip->permissions = mode;
 }

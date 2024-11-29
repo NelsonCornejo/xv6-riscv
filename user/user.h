@@ -22,11 +22,7 @@ int getpid(void);
 char* sbrk(int);
 int sleep(int);
 int uptime(void);
-int getppid(void);
-int getancestor(int);
-
-// syscall declaration
-int syscall(int num, ...);
+int chmod(char *path, int mode);
 
 // ulib.c
 int stat(const char*, struct stat*);
@@ -37,22 +33,12 @@ int strcmp(const char*, const char*);
 void fprintf(int, const char*, ...) __attribute__ ((format (printf, 2, 3)));
 void printf(const char*, ...) __attribute__ ((format (printf, 1, 2)));
 char* gets(char*, int max);
-int strlen(const char*);
-void* memset(void*, int, unsigned int);
+uint strlen(const char*);
+void* memset(void*, int, uint);
 int atoi(const char*);
-int memcmp(const void *, const void *, unsigned int);
-void *memcpy(void *, const void *, unsigned int);
+int memcmp(const void *, const void *, uint);
+void *memcpy(void *, const void *, uint);
 
 // umalloc.c
-void* malloc(unsigned int);
+void* malloc(uint);
 void free(void*);
-
-// declarar la función para los programas de usuario
-int getpriority(void);
-
-// TAREA 3
-int mprotect(void *addr, int len);
-int munprotect(void *addr, int len);
-
-// TAREA 4
-int chmod(const char *path, int mode);
